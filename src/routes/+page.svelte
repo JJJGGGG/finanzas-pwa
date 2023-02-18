@@ -67,7 +67,6 @@
                 ret[ret.length - 1].value += val.value
             }
         })
-        console.log(ret);
         return ret;
     }
 
