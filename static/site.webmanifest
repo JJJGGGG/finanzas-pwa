@@ -18,17 +18,20 @@
     "shortcuts": [
         {
             "name": "Balance",
-            "url": "/"
+            "url": "/",
+            "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
         },
         {
             "name": "Gastos",
             "url": "/spendings",
-            "description": "Resumen de gastos"
+            "description": "Resumen de gastos",
+            "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
         },
         {
             "name": "Ingresos",
             "url": "/incomes",
-            "description": "Resumen de ingresos"
+            "description": "Resumen de ingresos",
+            "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
         }
     ],
     "theme_color": "#ffffff",
