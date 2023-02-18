@@ -1,39 +1,42 @@
 <script lang="ts">
   import "@carbon/styles/css/styles.css";
   import "@carbon/charts/styles.css";
-  import type { ScaleTypes, AreaChartOptions } from "@carbon/charts/interfaces"
+  import type { ScaleTypes, AreaChartOptions, LineChartOptions } from "@carbon/charts/interfaces"
 	import { createDbConnection, getIncomesFromDatabase, getSpendingsFromDatabase, type Income, type Spending } from "../helpers/db";
 	import { onMount } from "svelte";
+	import { AreaChart } from "@carbon/charts-svelte";
 
     let db: IDBDatabase | null;
     let incomes: Income[] = [];
     let spendings: Spending[] = [];
 
-    let chart: typeof import("@carbon/charts-svelte").StackedAreaChart;
+    let chartType = "normal";
+
+    let stackedAreaChart: typeof import("@carbon/charts-svelte").StackedAreaChart;
+    let lineChart: typeof import("@carbon/charts-svelte").LineChart;
 
     onMount(async () => {
         db = await createDbConnection();
         const charts = await import("@carbon/charts-svelte");
-        chart = charts.StackedAreaChart;
+        stackedAreaChart = charts.StackedAreaChart;
+        lineChart = charts.LineChart;
     })
 
     async function loadIncomesFromDatabase() {
         if(db) {
             incomes = await getIncomesFromDatabase(db)
-            console.log(incomes)
         }
     }
     async function loadSpendingsFromDatabase() {
         if(db) {
             spendings = await getSpendingsFromDatabase(db)
-            console.log(spendings)
         }
     }
 
     $: db && loadIncomesFromDatabase();
     $: db && loadSpendingsFromDatabase();
 
-    const fullOptions: AreaChartOptions = {
+    const fullOptions: AreaChartOptions | LineChartOptions = {
       "title": "",
       "axes": {
         "bottom": {
@@ -63,6 +66,58 @@
           "Gasto": "#FF4949",
         }
       },
+    }
+
+    function getPerDay(incomes: Income[], spendings: Spending[]) {
+        const ret: {group: string, date: number, value: number}[] = [];
+        
+        const datesSet = new Set([
+          ...incomes.map((d) => d.timestamp),
+          ...spendings.map((d) => d.timestamp),
+        ]);
+
+        const dates = Array.from(datesSet).sort(); // esto se puede hacer más rápido
+
+        let incomeIdx = 0;
+        let spendingIdx = 0;
+
+        const perDate = dates.map((date) => {
+          let income = 0;
+          let spending = 0;
+          if(incomeIdx < incomes.length && incomes[incomeIdx].timestamp == date) {
+            income = incomes[incomeIdx].value;
+            incomeIdx++;
+          }
+          if(spendingIdx < spendings.length && spendings[spendingIdx].timestamp == date) {
+            spending = spendings[spendingIdx].value;
+            spendingIdx++;
+          }
+          return {
+            income,
+            spending,
+            date
+          }
+        })
+
+        perDate.forEach((val) => {
+          if(val.income > 0) {
+            ret.push({
+              group: "Ingreso",
+              value: val.income,
+              date: val.date
+            })
+          }
+          if(val.spending > 0) {
+            ret.push({
+              group: "Gasto",
+              value: val.spending,
+              date: val.date
+            })
+          }
+        })
+
+        return ret;
+
     }
 
     function getCumulativePerDay(incomes: Income[], spendings: Spending[]) {
@@ -151,15 +206,30 @@
         // return ret;
     }
 
-    $: allBudget = getCumulativePerDay(incomes, spendings)
+    $: allBudgetCumulative = getCumulativePerDay(incomes, spendings);
+    $: allBudget = getPerDay(incomes, spendings)
 </script>
 
 <h1 class="text-2xl text-gray-700 font-bold mb-2">Resumen de Gastos</h1>
 
+<select class="rounded px-2 py-1" bind:value={chartType}>
+  <option value="normal">Diario</option>
+  <option value="cumulative">Acumulado</option>
+</select>
+
 <div class="px-4">
-  <svelte:component
-      this={chart}
+  {#if chartType == "normal"}
+    <svelte:component
+      this={lineChart}
       data={allBudget}
       options={fullOptions} 
-  />
+    />
+  {/if}
+  {#if chartType == "cumulative"}
+    <svelte:component
+        this={stackedAreaChart}
+        data={allBudgetCumulative}
+        options={fullOptions} 
+    />
+  {/if}
 </div>
