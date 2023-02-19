@@ -35,15 +35,17 @@
 
 <a href="/incomes/add" class="inline-block mb-2 bg-blue-500 hover:bg-blue-600 rounded px-4 py-2 text-white mt-4">Agregar ingreso</a>
 
-<select class="rounded px-2 py-1" bind:value={selectedRange}>
-    <option value={null}>Fecha sin seleccionar</option>
-    {#each incomesRanges as range}
-        <option value={range}>{new Date(range).toLocaleDateString()}</option>
-    {/each}
-</select>
-
 <div>
-    <div class="mt-4">
+    {#if incomes.length}
+        <h2 class="text-base text-gray-700 font-bold mb-2">Filtrar por fecha</h2>
+        <select class="rounded px-2 py-1" bind:value={selectedRange}>
+            <option value={null}>Todas las fechas</option>
+            {#each incomesRanges as range}
+                <option value={range}>{new Date(range).toLocaleDateString()}</option>
+            {/each}
+        </select>
+    {/if}
+    <div class="mt-4 mb-4">
         {#each incomes.reverse() as income}
             <div class="border-gray-200 border rounded mb-4 px-4 py-2 flex h-24">
                 <div class="w-full flex flex-col justify-between">
@@ -58,7 +60,7 @@
                 </div>
             </div>
         {:else}
-            <div>No hay ingresos. Por favor agregue uno.</div>
+            <div>No hay ingresos. Para agregar uno, presione el botón "Agregar ingreso"</div>
         {/each}
     </div> 
 </div>
