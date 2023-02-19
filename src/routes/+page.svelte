@@ -20,6 +20,9 @@
     let minDate: Date;
     let maxDate: Date;
 
+    let loadedIncomes = false;
+    let loadedSpendings = false;
+
     onMount(async () => {
         db = await createDbConnection();
         const charts = await import("@carbon/charts-svelte");
@@ -37,21 +40,28 @@
       finalDate = maxDate;
     }
 
-    $: spendings.length && incomes.length && updateDates(spendings, incomes)
+    $: (spendings.length || incomes.length) && updateDates(spendings, incomes)
 
     async function loadIncomesFromDatabase() {
         if(db) {
-            incomes = await getIncomesFromDatabase(db)
+            incomes = await getIncomesFromDatabase(db);
+            setTimeout(() => {
+              loadedIncomes = true
+            }, 500);
         }
     }
     async function loadSpendingsFromDatabase() {
         if(db) {
-            spendings = await getSpendingsFromDatabase(db)
+            spendings = await getSpendingsFromDatabase(db);
+            setTimeout(() => {
+              loadedSpendings = true
+            }, 500);
         }
     }
 
     $: db && loadIncomesFromDatabase();
     $: db && loadSpendingsFromDatabase();
+
 
     const fullOptions: LineChartOptions = {
       "title": "",
@@ -164,39 +174,53 @@
 
 <h1 class="text-2xl text-gray-700 font-bold mb-2">Resumen de Gastos</h1>
 
-{#if initialDate && finalDate}
+{#if loadedIncomes && loadedSpendings}
+  {#if incomes.length || spendings.length}
+    <h2 class="text-base text-gray-700 font-bold mb-2">Tipo de gráfico</h2>
+    <select class="rounded px-2 py-1 mb-4" bind:value={chartType}>
+      <option value="balance">Balance</option>
+      {#if incomes.length}<option value="income">Ingresos</option>{/if}
+      {#if spendings.length}<option value="spending">Gastos</option>{/if}
+    </select>
+    <h2 class="text-base text-gray-700 font-bold mb-2">Filtrar por fecha</h2>
+    <div class="flex gap-4">
+      <div>
+      <div class="text-gray-700 font-bold mb-2">Inicio</div>
+      <DateInput bind:value={initialDate} min={minDate} max={finalDate} format="yyyy-MM-dd" />
+      </div>
+      <div>
+      <div  class="text-gray-700 font-bold mb-2">Final</div>
+      <DateInput bind:value={finalDate} min={initialDate} max={maxDate} format="yyyy-MM-dd"/>
+      </div>
+    </div>
+    <div class="px-4">
+      <svelte:component
+        style="padding: 10px 10px 10px 10px"
+        this={lineChart}
+        data={data.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
+        options={fullOptions} 
+      />
+    </div>
+    {:else}
 
-  <h2 class="text-base text-gray-700 font-bold mb-2">Tipo de gráfico</h2>
-  <select class="rounded px-2 py-1 mb-4" bind:value={chartType}>
-    <option value="balance">Balance</option>
-    <option value="income">Ingresos</option>
-    <option value="spending">Gastos</option>
-  </select>
-  <h2 class="text-base text-gray-700 font-bold mb-2">Filtrar por fecha</h2>
-  <div class="flex gap-4">
-    <div>
-    <div class="text-gray-700 font-bold mb-2">Inicio</div>
-    <DateInput bind:value={initialDate} min={minDate} max={finalDate} format="yyyy-MM-dd" />
+    <div class="h-20 flex flex-col justify-center">
+      No hay ingresos ni gastos.
     </div>
-    <div>
-    <div  class="text-gray-700 font-bold mb-2">Final</div>
-    <DateInput bind:value={finalDate} min={initialDate} max={maxDate} format="yyyy-MM-dd"/>
-    </div>
-  </div>
-  <div class="px-4">
-    <svelte:component
-      style="padding: 10px 10px 10px 10px"
-      this={lineChart}
-      data={data.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
-      options={fullOptions} 
-    />
-  </div>
+    {/if}
 {:else}
 <div class="h-20 flex flex-col justify-center">
-  {#if db && !incomes.length && !spendings.length}
-    No hay ingresos ni gastos.
-  {:else}
-    Cargando...
-  {/if}
+  <svg version="1.1" id="L9" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+  viewBox="0 0 100 100" enable-background="new 0 0 0 0" xml:space="preserve">
+    <path fill="#000" d="M73,50c0-12.7-10.3-23-23-23S27,37.3,27,50 M30.9,50c0-10.5,8.5-19.1,19.1-19.1S69.1,39.5,69.1,50">
+      <animateTransform 
+         attributeName="transform" 
+         attributeType="XML" 
+         type="rotate"
+         dur="1s" 
+         from="0 50 50"
+         to="360 50 50" 
+         repeatCount="indefinite" />
+    </path>
+  </svg>
 </div>
 {/if}
