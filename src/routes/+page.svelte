@@ -31,9 +31,9 @@
     function updateDates(spendings: Spending[], incomes: Income[]) {
       const dates = getDates(incomes, spendings);
 
-      minDate = new Date(dates[0]);
+      minDate = new Date(new Date(dates[0]).setHours(0,0,0,0));
 
-      maxDate = new Date(dates[dates.length - 1]);
+      maxDate = new Date(new Date(dates[dates.length - 1]).setHours(23, 59, 59, 999));
 
       initialDate = minDate;
       finalDate = maxDate;
@@ -264,7 +264,7 @@
       <svelte:component
         style="padding: 10px 10px 10px 10px"
         this={lineChart}
-        data={allBudget.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
+        data={allBudget.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
         options={fullOptions} 
       />
     {/if}
@@ -272,7 +272,7 @@
       <svelte:component
         style="padding: 10px 10px 10px 10px"
         this={stackedAreaChart}
-        data={allBudgetCumulative.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
+        data={allBudgetCumulative.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
         options={fullOptions} 
       />
     {/if}
