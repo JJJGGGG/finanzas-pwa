@@ -1,7 +1,7 @@
 <script lang="ts">
   import "@carbon/styles/css/styles.css";
   import "@carbon/charts/styles.css";
-  import type { ScaleTypes, TickRotations, AreaChartOptions, LineChartOptions } from "@carbon/charts/interfaces"
+  import type { ScaleTypes, TickRotations, LineChartOptions } from "@carbon/charts/interfaces"
 	import { createDbConnection, getIncomesFromDatabase, getSpendingsFromDatabase, type Income, type Spending } from "../helpers/db";
 	import { onMount } from "svelte";
   import { DateInput } from "date-picker-svelte"
@@ -10,9 +10,8 @@
     let incomes: Income[] = [];
     let spendings: Spending[] = [];
 
-    let chartType = "normal";
+    let chartType = "balance";
 
-    let stackedAreaChart: typeof import("@carbon/charts-svelte").StackedAreaChart;
     let lineChart: typeof import("@carbon/charts-svelte").LineChart;
 
     let initialDate: Date;
@@ -24,8 +23,7 @@
     onMount(async () => {
         db = await createDbConnection();
         const charts = await import("@carbon/charts-svelte");
-        stackedAreaChart = charts.StackedAreaChart;
-        lineChart = charts.ScatterChart;
+        lineChart = charts.LineChart;
     })
 
     function updateDates(spendings: Spending[], incomes: Income[]) {
@@ -55,7 +53,7 @@
     $: db && loadIncomesFromDatabase();
     $: db && loadSpendingsFromDatabase();
 
-    const fullOptions: AreaChartOptions | LineChartOptions = {
+    const fullOptions: LineChartOptions = {
       "title": "",
       "axes": {
         "bottom": {
@@ -87,6 +85,7 @@
         "scale": {
           "Ingreso": "#0F4392",
           "Gasto": "#FF4949",
+          "Balance": "#9400D3"
         }
       },
     }
@@ -100,55 +99,6 @@
         const dates = Array.from(datesSet).sort(); // esto se puede hacer más rápido
 
         return dates;
-    }
-
-    function getPerDay(incomes: Income[], spendings: Spending[]) {
-        const ret: {group: string, date: number, value: number}[] = [];
-        
-        const dates = getDates(incomes, spendings);
-        
-        let incomeIdx = 0;
-        let spendingIdx = 0;
-
-        const perDate = dates.map((date) => {
-          let income = 0;
-          let spending = 0;
-          if(incomeIdx < incomes.length && incomes[incomeIdx].timestamp == date) {
-            income = incomes[incomeIdx].value;
-            incomeIdx++;
-          }
-          if(spendingIdx < spendings.length && spendings[spendingIdx].timestamp == date) {
-            spending = spendings[spendingIdx].value;
-            spendingIdx++;
-          }
-          return {
-            income,
-            spending,
-            date
-          }
-        })
-
-        perDate.forEach((val) => {
-          if(val.income > 0) {
-            ret.push({
-              group: "Ingreso",
-              value: val.income,
-              date: val.date
-            })
-          }
-          if(val.spending > 0) {
-            ret.push({
-              group: "Gasto",
-              value: val.spending,
-              date: val.date
-            })
-          }
-        })
-
-        console.log(ret);
-
-        return ret;
-
     }
 
     function getCumulativePerDay(incomes: Income[], spendings: Spending[]) {
@@ -188,55 +138,28 @@
           })
         })
 
-        cumulativePerDate.forEach((val) => {
-          ret.push({
-            group: "Ingreso",
-            value: val.income,
-            date: val.date
-          })
-          ret.push({
-            group: "Gasto",
-            value: -val.spending,
-            date: val.date
-          })
-        })
+        return cumulativePerDate;
+    }
 
-        return ret;
-
-
-        // arr.forEach((val, idx) => {
-        //     const date = new Date(val.timestamp).getTime();
-        //     // if(idx == 0 || ret[ret.length - 1].date != date) {
-        //     //     ret.push({
-        //     //         group: type,
-        //     //         date: date,
-        //     //         value: idx == 0 ? val.value : val.value + ret[ret.length - 1].value
-        //     //     })
-        //     // } else {
-        //     //     ret[ret.length - 1].value += val.value
-        //     // }
-        //     let value;
-        //     if(type == "Gastos") {
-        //       value = - val.value;
-        //     } else {
-        //       value = val.value;
-        //     }
-        //     ret.push({
-        //         group: type,
-        //         date: date,
-        //         value: idx == 0 ? value : value + ret[ret.length - 1].value
-        //     })
-        // })
-        // ret.push({
-        //   group: type,
-        //   date: Date.now(),
-        //   value: ret.length != 0 ? ret[ret.length - 1].value : 0
-        // })
-        // return ret;
+    function getGraphData(abc: {income: number; spending: number; date: number; }[], chartType: string) {
+      console.log(abc)
+      if(chartType == "balance") {
+        return abc.map((val) => ({group: "Balance", value: val.income - val.spending, date: val.date}))
+      }
+      if(chartType == "income") {
+        let abc2 = abc.slice(abc.findIndex((val) => val.income != 0));
+        abc2 = abc2.filter((val, i, arr) => i == 0 || arr[i-1].income != val.income);
+        return abc2.map((val) => ({group: "Ingreso", value: val.income, date: val.date}))
+      }
+      if((chartType == "spending") || true) {
+        let abc2 = abc.slice(abc.findIndex((val) => val.spending != 0));
+        abc2 = abc2.filter((val, i, arr) => i == 0 || arr[i-1].spending != val.spending);
+        return abc2.map((val) => ({group: "Gasto", value: val.spending, date: val.date}))
+      }
     }
 
     $: allBudgetCumulative = getCumulativePerDay(incomes, spendings);
-    $: allBudget = getPerDay(incomes, spendings)
+    $: data = getGraphData(allBudgetCumulative, chartType)
 </script>
 
 <h1 class="text-2xl text-gray-700 font-bold mb-2">Resumen de Gastos</h1>
@@ -245,8 +168,9 @@
 
   <h2 class="text-base text-gray-700 font-bold mb-2">Tipo de gráfico</h2>
   <select class="rounded px-2 py-1 mb-4" bind:value={chartType}>
-    <option value="normal">Diario</option>
-    <option value="cumulative">Acumulado</option>
+    <option value="balance">Balance</option>
+    <option value="income">Ingresos</option>
+    <option value="spending">Gastos</option>
   </select>
   <h2 class="text-base text-gray-700 font-bold mb-2">Filtrar por fecha</h2>
   <div class="flex gap-4">
@@ -260,22 +184,12 @@
     </div>
   </div>
   <div class="px-4">
-    {#if chartType == "normal"}
-      <svelte:component
-        style="padding: 10px 10px 10px 10px"
-        this={lineChart}
-        data={allBudget.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
-        options={fullOptions} 
-      />
-    {/if}
-    {#if chartType == "cumulative"}
-      <svelte:component
-        style="padding: 10px 10px 10px 10px"
-        this={stackedAreaChart}
-        data={allBudgetCumulative.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
-        options={fullOptions} 
-      />
-    {/if}
+    <svelte:component
+      style="padding: 10px 10px 10px 10px"
+      this={lineChart}
+      data={data.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
+      options={fullOptions} 
+    />
   </div>
 {:else}
 <div class="h-20 flex flex-col justify-center">
