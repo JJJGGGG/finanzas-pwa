@@ -252,16 +252,17 @@
   <div class="flex gap-4">
     <div>
     <div class="text-gray-700 font-bold mb-2">Inicio</div>
-    <DateInput bind:value={initialDate} min={minDate} max={finalDate} />
+    <DateInput bind:value={initialDate} min={minDate} max={finalDate} format="yyyy-MM-dd" />
     </div>
     <div>
     <div  class="text-gray-700 font-bold mb-2">Final</div>
-    <DateInput bind:value={finalDate} min={initialDate} max={maxDate}/>
+    <DateInput bind:value={finalDate} min={initialDate} max={maxDate} format="yyyy-MM-dd"/>
     </div>
   </div>
   <div class="px-4">
     {#if chartType == "normal"}
       <svelte:component
+        style="padding: 10px 10px 10px 10px"
         this={lineChart}
         data={allBudget.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
         options={fullOptions} 
@@ -269,7 +270,7 @@
     {/if}
     {#if chartType == "cumulative"}
       <svelte:component
-        class="p-4"
+        style="padding: 10px 10px 10px 10px"
         this={stackedAreaChart}
         data={allBudgetCumulative.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
         options={fullOptions} 
