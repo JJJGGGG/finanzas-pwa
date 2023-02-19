@@ -262,7 +262,6 @@
   <div class="px-4">
     {#if chartType == "normal"}
       <svelte:component
-        style="padding: 10px 10px 10px 10px"
         this={lineChart}
         data={allBudget.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
         options={fullOptions} 
@@ -270,7 +269,6 @@
     {/if}
     {#if chartType == "cumulative"}
       <svelte:component
-        style="padding: 10px 10px 10px 10px"
         class="p-4"
         this={stackedAreaChart}
         data={allBudgetCumulative.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.setHours(23, 59, 59, 999))}
