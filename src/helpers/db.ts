@@ -115,9 +115,9 @@ export async function getSpendingsFromDatabase(db: IDBDatabase) {
             reject();
         };
         
-        const objectStore = transaction.objectStore("spendings");
+        const index = transaction.objectStore("spendings").index("timestamp");
         
-        objectStore.openCursor().onsuccess = (event) => {
+        index.openCursor().onsuccess = (event) => {
             const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
             if (cursor) {
               spendings.push(cursor.value);
@@ -190,9 +190,9 @@ export async function getIncomesFromDatabase(db: IDBDatabase) {
             reject();
         };
         
-        const objectStore = transaction.objectStore("incomes");
+        const index = transaction.objectStore("incomes").index("timestamp");
         
-        objectStore.openCursor().onsuccess = (event) => {
+        index.openCursor().onsuccess = (event) => {
             const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
             if (cursor) {
               spendings.push(cursor.value);

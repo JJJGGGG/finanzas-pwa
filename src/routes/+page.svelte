@@ -6,181 +6,204 @@
 	import { onMount } from "svelte";
   import { DateInput } from "date-picker-svelte"
 
-    let db: IDBDatabase | null;
-    let incomes: Income[] = [];
-    let spendings: Spending[] = [];
+  let db: IDBDatabase | null;
+  let incomes: Income[] = [];
+  let spendings: Spending[] = [];
+  let incomesPerDay: { value: number, date: number }[] = [];
+  let spendingsPerDay: { value: number, date: number }[] = [];
+  let cumulativeIncomesPerDay: { value: number, date: number }[] = [];
+  let cumulativeSpendingsPerDay: { value: number, date: number }[] = [];
+  let balance: { value: number, date: number }[] = [];
 
-    let chartType = "balance";
+  let chartType = "balance";
 
-    let lineChart: typeof import("@carbon/charts-svelte").LineChart;
+  let lineChart: typeof import("@carbon/charts-svelte").LineChart;
+  let barChart: typeof import("@carbon/charts-svelte").BarChartStacked;
 
-    let initialDate: Date;
-    let finalDate: Date;
+  let initialDate: Date = new Date(0);
+  let finalDate: Date = new Date(8640000000000000);
+  let minDate: Date = new Date(0);
+  let maxDate: Date = new Date(8640000000000000);
 
-    let minDate: Date;
-    let maxDate: Date;
+  let loaded = false;
+  let dates: number[] = [];
 
-    let loadedIncomes = false;
-    let loadedSpendings = false;
+  onMount(async () => {
+      db = await createDbConnection();
+      const charts = await import("@carbon/charts-svelte");
+      lineChart = charts.AreaChart;
+      barChart = charts.BarChartStacked;
+      await loadFromDatabase();
+  });
 
-    onMount(async () => {
-        db = await createDbConnection();
-        const charts = await import("@carbon/charts-svelte");
-        lineChart = charts.LineChart;
+  function getDates(incomes: {value: number, date:number}[], spendings: {value: number, date:number}[]) {
+    // TODO: 
+    const datesSet = new Set([
+        ...incomes.map((d) => d.date),
+        ...spendings.map((d) => d.date),
+      ]);
+
+      const dates = Array.from(datesSet).sort(); // esto se puede hacer más rápido
+
+      return dates;
+  }
+
+  function joinPerDay(arr: Income[] | Spending[]) {
+    const arrPerDay: { value: number, date: number }[] = [];
+    // TODO: hacerlo por categorías
+
+    let lastDate: undefined | number = undefined;
+    arr.forEach((el) => {
+      const currentDate = new Date(el.timestamp).setHours(0,0,0,0);
+      if(lastDate == undefined || lastDate != currentDate) {
+        arrPerDay.push({value: el.value, date: currentDate})
+      } else {
+        arrPerDay[arrPerDay.length - 1].value += el.value;
+      }
+      lastDate = currentDate;
+    });
+
+    return arrPerDay
+  }
+
+  function getCumulativeBetweenDates(arr: { value: number, date: number }[], initialDate: number, finalDate: number) {
+    const result: { value: number, date: number }[] = [];
+
+    arr = arr.filter((val) => val.date >= initialDate && val.date <= finalDate);
+
+    arr.forEach((el, i) => i == 0 ? result.push(el) : result.push({ date: el.date, value: result[i-1].value + el.value }))
+  
+    return result;
+  }
+
+  async function loadFromDatabase() {
+    if(db) {
+      incomes = await getIncomesFromDatabase(db);
+      spendings = await getSpendingsFromDatabase(db);
+      incomesPerDay = joinPerDay(incomes);
+      spendingsPerDay = joinPerDay(spendings);
+      dates = getDates(incomesPerDay, spendingsPerDay);
+      if(dates.length) {
+        minDate = new Date(new Date(dates[0]).setHours(0,0,0,0));
+        maxDate = new Date(new Date(dates[dates.length - 1]).setHours(23, 59, 59, 999));
+        initialDate = minDate;
+        finalDate = maxDate;
+      }
+      setTimeout(() => loaded = true, 200);
+    }
+  }
+
+
+  $: cumulativeIncomesPerDay = getCumulativeBetweenDates(incomesPerDay, initialDate.getTime(), finalDate.getTime());
+  $: cumulativeSpendingsPerDay = getCumulativeBetweenDates(incomesPerDay, initialDate.getTime(), finalDate.getTime());
+  $: balance = getBalance(incomesPerDay, spendingsPerDay, dates);
+
+  const fullOptions: LineChartOptions = {
+    "title": "",
+    "axes": {
+      "bottom": {
+        "title": "Fecha",
+        "mapsTo": "date",
+        "scaleType": "time" as ScaleTypes,
+        // "ticks": {
+        //   "formatter": (date: number) => new Date(date).toLocaleDateString()
+        // }
+
+        "ticks": {
+          "rotation": "always" as TickRotations
+        }
+      },		
+      "left": {
+        "stacked": true,
+        "title": "Dinero (pesos)"
+      },
+    },
+    "curve": "curveMonotoneX",
+    "height": "400px",
+    // "timeScale": {
+    //   "addSpaceOnEdges": 1
+    // },
+    "color": {
+      "pairing": {
+        "option": 2,
+      },
+      "scale": {
+        "Ingreso": "#0F4392",
+        "Gasto": "#FF4949",
+        "Balance": "#9400D3"
+      }
+    },
+  }
+
+  function getBalance(incomesPerDay: {value: number, date: number}[], spendingsPerDay: {value: number, date: number}[], dates: number[]) {
+    let incomeIdx = 0;
+    let spendingIdx = 0;
+
+    const perDate = dates.map((date) => {
+      let income = 0;
+      let spending = 0;
+      if(incomeIdx < incomesPerDay.length && incomesPerDay[incomeIdx].date == date) {
+        income = incomesPerDay[incomeIdx].value;
+        incomeIdx++;
+      }
+      if(spendingIdx < spendingsPerDay.length && spendingsPerDay[spendingIdx].date == date) {
+        spending = spendingsPerDay[spendingIdx].value;
+        spendingIdx++;
+      }
+      return {
+        value: income - spending,
+        date
+      }
     })
 
-    function updateDates(spendings: Spending[], incomes: Income[]) {
-      const dates = getDates(incomes, spendings);
+    console.log("perdate", perDate)
 
-      minDate = new Date(new Date(dates[0]).setHours(0,0,0,0));
+    const cumulativePerDate: {value: number, date: number}[] = [];
 
-      maxDate = new Date(new Date(dates[dates.length - 1]).setHours(23, 59, 59, 999));
+    perDate.forEach((val, i) => {
+      cumulativePerDate.push({
+        value: i == 0 ? val.value : val.value + cumulativePerDate[cumulativePerDate.length-1].value,
+        date: val.date
+      })
+    })
 
-      initialDate = minDate;
-      finalDate = maxDate;
+    return perDate;
+  }
+
+  function getGraphData(chartType: string) {
+    if(chartType == "incomesPerDay") {
+      return incomesPerDay.filter((inc) => inc.date >= initialDate.getTime() && inc.date <= finalDate.getTime()).map((el) => ({...el, group: "Ingreso Diario"}));
     }
 
-    $: (spendings.length || incomes.length) && updateDates(spendings, incomes)
-
-    async function loadIncomesFromDatabase() {
-        if(db) {
-            incomes = await getIncomesFromDatabase(db);
-            setTimeout(() => {
-              loadedIncomes = true
-            }, 500);
-        }
-    }
-    async function loadSpendingsFromDatabase() {
-        if(db) {
-            spendings = await getSpendingsFromDatabase(db);
-            setTimeout(() => {
-              loadedSpendings = true
-            }, 500);
-        }
+    if(chartType == "spendingsPerDay") {
+      return spendingsPerDay.filter((spe) => spe.date >= initialDate.getTime() && spe.date <= finalDate.getTime()).map((el) => ({...el, group: "Gasto Diario"}));
     }
 
-    $: db && loadIncomesFromDatabase();
-    $: db && loadSpendingsFromDatabase();
-
-
-    const fullOptions: LineChartOptions = {
-      "title": "",
-      "axes": {
-        "bottom": {
-          "title": "Fecha",
-          "mapsTo": "date",
-          "scaleType": "time" as ScaleTypes,
-          // "ticks": {
-          //   "formatter": (date: number) => new Date(date).toLocaleDateString()
-          // }
-
-          "ticks": {
-            "rotation": "always" as TickRotations
-          }
-        },		
-        "left": {
-          "stacked": true,
-          "title": "Dinero (pesos)"
-        },
-      },
-      "curve": "curveMonotoneX",
-      "height": "400px",
-      // "timeScale": {
-      //   "addSpaceOnEdges": 1
-      // },
-      "color": {
-        "pairing": {
-          "option": 2,
-        },
-        "scale": {
-          "Ingreso": "#0F4392",
-          "Gasto": "#FF4949",
-          "Balance": "#9400D3"
-        }
-      },
+    if(chartType == "cumulativeIncomesPerDay") {
+      return cumulativeIncomesPerDay.map((el) => ({...el, group: "Ingreso Diario Acumulado"}));
     }
 
-    function getDates(incomes: Income[], spendings: Spending[]) {
-      const datesSet = new Set([
-          ...incomes.map((d) => d.timestamp),
-          ...spendings.map((d) => d.timestamp),
-        ]);
-
-        const dates = Array.from(datesSet).sort(); // esto se puede hacer más rápido
-
-        return dates;
+    if(chartType == "cumulativeSpendingsPerDay") {
+      return cumulativeSpendingsPerDay.map((el) => ({...el, group: "Gasto Diario Acumulado"}));
     }
 
-    function getCumulativePerDay(incomes: Income[], spendings: Spending[]) {
-        const ret: {group: string, date: number, value: number}[] = [];
-        
-        const dates = getDates(incomes, spendings);
-
-        let incomeIdx = 0;
-        let spendingIdx = 0;
-
-        const perDate = dates.map((date) => {
-          let income = 0;
-          let spending = 0;
-          if(incomeIdx < incomes.length && incomes[incomeIdx].timestamp == date) {
-            income = incomes[incomeIdx].value;
-            incomeIdx++;
-          }
-          if(spendingIdx < spendings.length && spendings[spendingIdx].timestamp == date) {
-            spending = spendings[spendingIdx].value;
-            spendingIdx++;
-          }
-          return {
-            income,
-            spending,
-            date
-          }
-        })
-
-        const cumulativePerDate: {income: number, spending: number, date: number}[] = [];
-
-        perDate.forEach((val, i, arr) => {
-          console.log(val)
-          cumulativePerDate.push({
-            income: i == 0 ? val.income : val.income + cumulativePerDate[cumulativePerDate.length-1].income,
-            spending: i == 0 ? val.spending : val.spending + cumulativePerDate[cumulativePerDate.length-1].spending,
-            date: val.date
-          })
-        })
-
-        return cumulativePerDate;
+    if(chartType == "balance") {
+      return balance.map((el) => ({...el, group: "Balance"}));
     }
-
-    function getGraphData(abc: {income: number; spending: number; date: number; }[], chartType: string) {
-      console.log(abc)
-      if(chartType == "balance") {
-        return abc.map((val) => ({group: "Balance", value: val.income - val.spending, date: val.date}))
-      }
-      if(chartType == "income") {
-        let abc2 = abc.slice(abc.findIndex((val) => val.income != 0));
-        abc2 = abc2.filter((val, i, arr) => i == 0 || arr[i-1].income != val.income);
-        return abc2.map((val) => ({group: "Ingreso", value: val.income, date: val.date}))
-      }
-      if((chartType == "spending") || true) {
-        let abc2 = abc.slice(abc.findIndex((val) => val.spending != 0));
-        abc2 = abc2.filter((val, i, arr) => i == 0 || arr[i-1].spending != val.spending);
-        return abc2.map((val) => ({group: "Gasto", value: val.spending, date: val.date}))
-      }
-    }
-
-    $: allBudgetCumulative = getCumulativePerDay(incomes, spendings);
-    $: data = getGraphData(allBudgetCumulative, chartType)
+  }
 </script>
 
 <h1 class="text-2xl text-gray-700 font-bold mb-2">Resumen de Gastos</h1>
 
-{#if loadedIncomes && loadedSpendings}
+{#if loaded}
   {#if incomes.length || spendings.length}
     <h2 class="text-base text-gray-700 font-bold mb-2">Tipo de gráfico</h2>
     <select class="rounded px-2 py-1 mb-4" bind:value={chartType}>
       <option value="balance">Balance</option>
-      {#if incomes.length}<option value="income">Ingresos</option>{/if}
-      {#if spendings.length}<option value="spending">Gastos</option>{/if}
+      {#if incomes.length}<option value="incomesPerDay">Ingresos por Día</option>{/if}
+      {#if spendings.length}<option value="spendingsPerDay">Gastos por Día</option>{/if}
+      {#if incomes.length}<option value="cumulativeIncomesPerDay">Ingresos acumulados por Día</option>{/if}
+      {#if spendings.length}<option value="cumulativeSpendingsPerDay">Gastos acumulados por Día</option>{/if}
     </select>
     <h2 class="text-base text-gray-700 font-bold mb-2">Filtrar por fecha</h2>
     <div class="flex gap-4">
@@ -194,12 +217,22 @@
       </div>
     </div>
     <div class="px-4">
-      <svelte:component
-        style="padding: 10px 10px 10px 10px"
-        this={lineChart}
-        data={data.filter((val) => val.date >= initialDate.getTime() && val.date <= finalDate.getTime())}
-        options={fullOptions} 
-      />
+      {#if chartType == "incomesPerDay" || chartType == "spendingsPerDay"}
+        <svelte:component
+          style="padding: 10px 10px 10px 10px"
+          this={barChart}
+          data={getGraphData(chartType)}
+          options={fullOptions} 
+        />
+      {/if}
+      {#if chartType == "cumulativeIncomesPerDay" || chartType == "cumulativeSpendingsPerDay" || chartType == "balance"}
+        <svelte:component
+          style="padding: 10px 10px 10px 10px"
+          this={lineChart}
+          data={getGraphData(chartType)}
+          options={fullOptions} 
+        />
+      {/if}
     </div>
     {:else}
 
