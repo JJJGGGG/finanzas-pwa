@@ -50,7 +50,7 @@
         {#each spendings.filter(sp => !selectedRange || (new Date(sp.timestamp).getTime() >= (selectedRange) && new Date(sp.timestamp).getTime() <= new Date(selectedRange).setHours(23, 59, 59, 999))).reverse() as spending}
             <div class="border-gray-200 border rounded mb-4 px-4 py-2 flex h-24">
                 <div class="w-full flex flex-col justify-between">
-                    <div class="font-bold">{spending.name}</div>
+                    <div class="font-bold">{spending.name} <small class="text-sm bg-gray-100 text-gray-500 px-1 py-1 rounded">{spending.category}</small></div>
                     <div>${spending.value}</div>
                 </div>
                 <div class=" flex flex-col w-full justify-between items-end">

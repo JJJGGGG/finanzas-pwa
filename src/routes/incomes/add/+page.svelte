@@ -1,21 +1,51 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { onMount } from "svelte";
-    import { addIncomeToDatabase, createDbConnection } from "../../../helpers/db";
-    let spendingName = "";
+    import { addIncomeToDatabase, createDbConnection, getIncomesFromDatabase } from "../../../helpers/db";
+    // @ts-ignore
+    import Svelecte from "svelecte";
+    let incomeName = "";
+    let incomeCategory = "";
     let value: number | null;
 
     let db: IDBDatabase | null;
 
+    let currentIncomeCategories: {id: string, name: string}[] = []
+
     onMount(async () => {
         db = await createDbConnection();
+        const incomes = await getIncomesFromDatabase(db);
+        const incomeCategories: string[] = []
+        incomes.forEach((income) => {
+            const category = income.category;
+            if(!incomeCategories.includes(category)) {
+                incomeCategories.push(category);
+            }
+        })
+        currentIncomeCategories = incomeCategories.map((cat) => ({id: cat, name: cat}));
     })
 
     async function addIncome() {
-        if(spendingName && value !== null && db) {
-            await addIncomeToDatabase(db, spendingName, value);
-            goto("/incomes")
+        if(db) {
+            await addIncomeToDatabase(db, "nombre1", 20000, Date.now(), "cat1");
+            await addIncomeToDatabase(db, "nombre2", 12500, Date.now(), "cat1");
+            await addIncomeToDatabase(db, "nombre3", 2500, Date.now(), "cat2");
+            await addIncomeToDatabase(db, "nombre4", 2300, Date.now(), "cat1");
+            await addIncomeToDatabase(db, "nombre5", 2530, Date.now(), "cat2");
+            await addIncomeToDatabase(db, "nombre6", 12000, Date.now() + 86400000, "cat2");
+            await addIncomeToDatabase(db, "nombre7", 13000, Date.now() + 86400000, "cat1");
         }
+        goto("/incomes");
+        // if(incomeName && incomeCategory && value !== null && db) {
+        //     const date = Date.now();
+        //     await addIncomeToDatabase(db, incomeName, value, date, incomeCategory);
+        //     goto("/incomes")
+        // }
+    }
+
+    const i18nOptions = {
+        empty: "No hay opciones. Por favor cree una nueva.",
+        createRowLabel: (val: string) => `Presione para crear categoría '${val}'`
     }
 </script>
 
@@ -24,9 +54,17 @@
 <div>
     <div class="mb-4">
         <label class="block text-gray-700 text-sm font-bold mb-2" for="nombre">
-            Tipo de Ingreso
+            Qué ingreso recibiste?
         </label>
-        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" bind:value={spendingName} id="nombre" type="text" >
+        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" bind:value={incomeName} id="nombre" type="text" >
+    </div>
+    
+
+    <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="categoria">
+            Categoría del Ingreso
+        </label>
+        <Svelecte placeholder="Selecciona o crea una categoría" i18n={i18nOptions} clearable creatable creatablePrefix="" options={currentIncomeCategories} bind:value={incomeCategory} id="categoria"/>
     </div>
 
     <div class="mb-4">

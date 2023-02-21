@@ -5,6 +5,7 @@ export type Spending = {
     name: string;
     value: number;
     timestamp: number;
+    category: string;
 }
 
 export type Income = {
@@ -12,6 +13,7 @@ export type Income = {
     name: string;
     value: number;
     timestamp: number;
+    category: string;
 }
 
 export async function createDbConnection() {
@@ -26,24 +28,27 @@ export async function createDbConnection() {
         };
 
         request.onupgradeneeded = (event) => {
+            console.log("Upgrading db")
             // Save the IDBDatabase interface
             const db = (event.target as IDBOpenDBRequest).result;
+
+            if(db.objectStoreNames.contains("spendings"))
+                db.deleteObjectStore("spendings");
+
+            if(db.objectStoreNames.contains("incomes"))
+                db.deleteObjectStore("incomes");
         
             // Create an objectStore for this database
 
             if( !db.objectStoreNames.contains("spendings") ) {
                 const objectStore = db.createObjectStore("spendings", { keyPath: "id", autoIncrement: true });
 
-                objectStore.createIndex("name", "name", { unique: false });
-                objectStore.createIndex("value", "value", { unique: false });
-                objectStore.createIndex("timestamp", "timestamp", { unique: false });
+                objectStore.createIndex("timestamp", ["timestamp", "category"], { unique: false });
             }
             if(!db.objectStoreNames.contains("incomes")) {
                 const objectStore = db.createObjectStore("incomes", { keyPath: "id", autoIncrement: true });
-    
-                objectStore.createIndex("name", "name", { unique: false });
-                objectStore.createIndex("value", "value", { unique: false });
-                objectStore.createIndex("timestamp", "timestamp", { unique: false });
+
+                objectStore.createIndex("timestamp", ["timestamp", "category"], { unique: false });
             }
 
         };
@@ -52,7 +57,7 @@ export async function createDbConnection() {
     return db;
 }
 
-export async function addSpendingToDatabase(db: IDBDatabase, name: string, value: number) {
+export async function addSpendingToDatabase(db: IDBDatabase, name: string, value: number, date: number, category: string) {
     return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(["spendings"], "readwrite");
 
@@ -70,7 +75,8 @@ export async function addSpendingToDatabase(db: IDBDatabase, name: string, value
         const request = objectStore.add({
             name,
             value,
-            timestamp: Date.now()
+            category,
+            timestamp: date
         });
         // request.onsuccess = (event) => {
         // // event.target.result === customer.ssn;
@@ -117,7 +123,7 @@ export async function getSpendingsFromDatabase(db: IDBDatabase) {
         
         const index = transaction.objectStore("spendings").index("timestamp");
         
-        index.openCursor().onsuccess = (event) => {
+        index.openCursor(null, "next").onsuccess = (event) => {
             const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
             if (cursor) {
               spendings.push(cursor.value);
@@ -127,7 +133,7 @@ export async function getSpendingsFromDatabase(db: IDBDatabase) {
     });
 }
 
-export async function addIncomeToDatabase(db: IDBDatabase, name: string, value: number) {
+export async function addIncomeToDatabase(db: IDBDatabase, name: string, value: number, date: number, category: string) {
     return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction(["incomes"], "readwrite");
 
@@ -145,7 +151,8 @@ export async function addIncomeToDatabase(db: IDBDatabase, name: string, value: 
         const request = objectStore.add({
             name,
             value,
-            timestamp: Date.now()
+            category,
+            timestamp: date
         });
         // request.onsuccess = (event) => {
         // // event.target.result === customer.ssn;
@@ -192,7 +199,7 @@ export async function getIncomesFromDatabase(db: IDBDatabase) {
         
         const index = transaction.objectStore("incomes").index("timestamp");
         
-        index.openCursor().onsuccess = (event) => {
+        index.openCursor(null, "next").onsuccess = (event) => {
             const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
             if (cursor) {
               spendings.push(cursor.value);

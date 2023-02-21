@@ -49,7 +49,7 @@
         {#each incomes.reverse() as income}
             <div class="border-gray-200 border rounded mb-4 px-4 py-2 flex h-24">
                 <div class="w-full flex flex-col justify-between">
-                    <div class="font-bold">{income.name}</div>
+                    <div class="font-bold">{income.name}  <small class="text-sm bg-gray-100 text-gray-500 px-1 py-1 rounded">{income.category}</small></div>
                     <div>${income.value}</div>
                 </div>
                 <div class=" flex flex-col w-full justify-between items-end">
