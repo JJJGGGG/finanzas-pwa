@@ -26,17 +26,6 @@
     })
 
     async function addSpending() {
-
-        if(db) {
-            await addSpendingToDatabase(db, "nombre1", 21000, Date.now(), "cat1");
-            await addSpendingToDatabase(db, "nombre2", 13500, Date.now(), "cat1");
-            await addSpendingToDatabase(db, "nombre3", 3500, Date.now(), "cat2");
-            await addSpendingToDatabase(db, "nombre4", 3300, Date.now(), "cat1");
-            await addSpendingToDatabase(db, "nombre5", 3530, Date.now(), "cat2");
-            await addSpendingToDatabase(db, "nombre6", 13000, Date.now() + 86400000, "cat2");
-            await addSpendingToDatabase(db, "nombre7", 14000, Date.now() + 86400000, "cat1");
-        }
-        return goto("/spendings")
         if(spendingName && value !== null && db) {
             const date = Date.now();
             await addSpendingToDatabase(db, spendingName, value, date, spendingCategory);

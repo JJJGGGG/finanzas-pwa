@@ -26,21 +26,11 @@
     })
 
     async function addIncome() {
-        if(db) {
-            await addIncomeToDatabase(db, "nombre1", 20000, Date.now(), "cat1");
-            await addIncomeToDatabase(db, "nombre2", 12500, Date.now(), "cat1");
-            await addIncomeToDatabase(db, "nombre3", 2500, Date.now(), "cat2");
-            await addIncomeToDatabase(db, "nombre4", 2300, Date.now(), "cat1");
-            await addIncomeToDatabase(db, "nombre5", 2530, Date.now(), "cat2");
-            await addIncomeToDatabase(db, "nombre6", 12000, Date.now() + 86400000, "cat2");
-            await addIncomeToDatabase(db, "nombre7", 13000, Date.now() + 86400000, "cat1");
+        if(incomeName && incomeCategory && value !== null && db) {
+            const date = Date.now();
+            await addIncomeToDatabase(db, incomeName, value, date, incomeCategory);
+            goto("/incomes")
         }
-        goto("/incomes");
-        // if(incomeName && incomeCategory && value !== null && db) {
-        //     const date = Date.now();
-        //     await addIncomeToDatabase(db, incomeName, value, date, incomeCategory);
-        //     goto("/incomes")
-        // }
     }
 
     const i18nOptions = {
