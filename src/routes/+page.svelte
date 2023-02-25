@@ -96,14 +96,23 @@
     arr = arr.filter((val) => val.date >= initialDate && val.date <= finalDate);
 
     arr = arr.sort((a, b) => a.date - b.date || a.category.localeCompare(b.category))
+    
+    // TODO: añadir las categorias que no se compraron (para tener el acumulado). puede ser verlo por día
+    // o de otra forma
+    
+    const days: number[] = [];
+    arr.forEach((el) => {if(!days.length || days[days.length - 1] != el.date) {days.push(el.date)}});
 
-    arr.forEach((el, i) => {
-      if(!bought[el.category]) {
-        result.push(el)
-      } else {
-        result.push({ date: el.date, value: bought[el.category] + el.value, category: el.category })
+    let currentIndex = 0;
+    let currentDay: Record<string, number> = {};
+    days.forEach(day => {
+      while(currentIndex < arr.length && arr[currentIndex].date == day) {
+        currentDay[arr[currentIndex].category] = (currentDay[arr[currentIndex].category] || 0) + arr[currentIndex].value;
+        currentIndex += 1;
       }
-      bought[el.category] = result[result.length - 1].value;
+      Object.keys(currentDay).forEach(key => {
+        result.push({ value: currentDay[key], date: day, category: key })
+      })
     })
   
     return result;
